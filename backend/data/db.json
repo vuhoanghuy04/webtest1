@@ -1,4 +1,12 @@
 {
-  "users": [],
+  "users": [
+    {
+      "id": "73fce53f-4c5c-405d-b8fc-4113391d0f39",
+      "fullName": "VHH",
+      "email": "abc@xyz.com",
+      "password": "$2a$10$kyxZ1iB5bAR1U60DmHdf7Oj.QMtLme5lMLf963eOS8BTRqfAXf38m",
+      "createdAt": "2026-03-17T15:15:39.640Z"
+    }
+  ],
   "consultations": []
 }

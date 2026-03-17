@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { readDb, writeDb } from './dbService.js';
 import { httpError } from '../utils/httpError.js';
+import { getPool } from './mysqlService.js';
 
 const validMajors = [
   'Công nghệ thông tin',
@@ -22,24 +22,70 @@ export async function createConsultation({ fullName, phone, major, notes }, user
     throw httpError('Ngành đăng ký không hợp lệ.', 400);
   }
 
-  const consultation = {
-    id: uuidv4(),
+  const id = uuidv4();
+  const createdAt = new Date();
+
+  const createdBy = user
+    ? { id: user.sub, email: user.email, fullName: user.fullName }
+    : null;
+
+  const pool = getPool();
+
+  await pool.execute(
+    `INSERT INTO consultations
+      (id, full_name, phone, major, notes, created_at, created_by_user_id, created_by_email, created_by_full_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      fullName.trim(),
+      phone.trim(),
+      major,
+      notes?.trim() || '',
+      createdAt,
+      createdBy?.id ?? null,
+      createdBy?.email ?? null,
+      createdBy?.fullName ?? null,
+    ]
+  );
+
+  return {
+    id,
     fullName: fullName.trim(),
     phone: phone.trim(),
     major,
     notes: notes?.trim() || '',
-    createdAt: new Date().toISOString(),
-    createdBy: user ? { id: user.sub, email: user.email, fullName: user.fullName } : null,
+    createdAt: createdAt.toISOString(),
+    createdBy,
   };
-
-  const db = await readDb();
-  db.consultations.push(consultation);
-  await writeDb(db);
-
-  return consultation;
 }
 
 export async function getConsultations() {
-  const db = await readDb();
-  return db.consultations.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const pool = getPool();
+
+  const [rows] = await pool.execute(
+    `SELECT
+      id,
+      full_name AS fullName,
+      phone,
+      major,
+      notes,
+      created_at AS createdAt,
+      created_by_user_id AS createdByUserId,
+      created_by_email AS createdByEmail,
+      created_by_full_name AS createdByFullName
+    FROM consultations
+    ORDER BY created_at DESC`
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    fullName: r.fullName,
+    phone: r.phone,
+    major: r.major,
+    notes: r.notes || '',
+    createdAt: new Date(r.createdAt).toISOString(),
+    createdBy: r.createdByUserId
+      ? { id: r.createdByUserId, email: r.createdByEmail, fullName: r.createdByFullName }
+      : null,
+  }));
 }
